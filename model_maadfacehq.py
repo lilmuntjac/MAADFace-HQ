@@ -111,7 +111,7 @@ def main(args):
         # scheduler.step()
         val_stat_per_epoch = val()
         epoch_time = time.time() - epoch_start
-        print(f'Epoch {epoch:4} done in {total_time/60:.4f} mins')
+        print(f'Epoch {epoch:4} done in {epoch_time/60:.4f} mins')
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
         # print some basic statistic
