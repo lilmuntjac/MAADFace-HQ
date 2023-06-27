@@ -91,9 +91,9 @@ class MAADFaceHQModel(torch.nn.Module):
         47: All attributes of MAADFace-HQ
     """
 
-    def __init__(self, out_feature=46, weights='ResNet50_Weights.DEFAULT'):
+    def __init__(self, out_feature=46, weights='ResNet34_Weights.DEFAULT'):
         super(MAADFaceHQModel, self).__init__()
-        self.model = models.resnet50(weights=weights)
+        self.model = models.resnet34(weights=weights)
         in_feature = self.model.fc.in_features
         self.model.fc = nn.Sequential(OrderedDict([
             ('fc', nn.Linear(in_feature, out_feature)),
@@ -111,6 +111,33 @@ class MAADFaceHQModel(torch.nn.Module):
         return z
 
 # -------------------- fairness related --------------------
+# all the binary attribute
+attributes47 = ['Male','Young','Middle_Aged','Senior','Asian','White','Black',
+                'Rosy_Cheeks','Shiny_Skin','Bald','Wavy_Hair','Receding_Hairline','Bangs','Sideburns','Black_Hair','Blond_Hair','Brown_Hair','Gray_Hair',
+                'No_Beard','Mustache','5_o_Clock_Shadow','Goatee','Oval_Face','Square_Face','Round_Face','Double_Chin','High_Cheekbones','Chubby',
+                'Obstructed_Forehead','Fully_Visible_Forehead','Brown_Eyes','Bags_Under_Eyes','Bushy_Eyebrows','Arched_Eyebrows',
+                'Mouth_Closed','Smiling','Big_Lips','Big_Nose','Pointy_Nose','Heavy_Makeup',
+                'Wearing_Hat','Wearing_Earrings','Wearing_Necktie','Wearing_Lipstick','No_Eyewear','Eyeglasses','Attractive']
+
+def split_tensor_by_attribute(tensor, attr_dim=0, attr_list=[]):
+    # attribute list should contain the name of the attributes
+    attr_idx = []
+    for attr_name in attr_list:
+        assert attributes47.count(attr_name) > 0, f'Unknown attribute'
+        attr_idx.append(attributes47.index(attr_name))
+    # filter tensor by the attributes
+    match attr_dim:
+        case 0:
+            return tensor[attr_idx]
+        case 1:
+            return tensor[:, attr_idx]
+        case 2:
+            return tensor[:, :, attr_idx]
+        case 3:
+            return tensor[:, :, :, attr_idx]
+        case _:
+            assert False, f'only support attributes dimension less than 4'
+
 def calc_groupcm_soft(pred, label, sens):
     def confusion_matrix_soft(pred, label, idx):
         label_strong = torch.where(label>0.4, 1, 0)
@@ -188,3 +215,4 @@ def normalize(data, mean=imagenet_mean, std=imagenet_std):
 def to_prediction(logit):
     # conert binary logit into prediction
     pred = torch.where(logit > 0.5, 1, 0)
+    return pred

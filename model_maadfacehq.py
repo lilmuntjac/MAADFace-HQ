@@ -21,7 +21,9 @@ def main(args):
     test_dataloader = maadface_hq.test_dataloader
     
     # model, optimizer, and scheduler
-    model = MAADFaceHQModel(out_feature=46, weights=None).to(device)
+    attr_count = len(args.attr_list)
+    print(f'Calling model capable of predicting {attr_count} attributes.')
+    model = MAADFaceHQModel(out_feature=attr_count, weights=None).to(device)
     optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=1e-5
     )
@@ -41,11 +43,11 @@ def main(args):
         train_stat = np.array([])
         model.train()
         # training loop
-        for batch_idx, (data, label) in enumerate(train_dataloader):
-            label = label.to(torch.float32)/2+0.5
-            # remove the sensitive attribute, Male
-            sens = label[:,0:1]
-            label = label[:,1:]
+        for batch_idx, (data, raw_label) in enumerate(train_dataloader):
+            raw_label = raw_label.to(torch.float32)/2+0.5 # adjust label into (0, 1)
+            sens = split_tensor_by_attribute(raw_label, attr_dim=1, attr_list=['Male',])
+            label = split_tensor_by_attribute(raw_label, attr_dim=1, attr_list=args.attr_list)
+            
             data, label, sens = data.to(device), label.to(device), sens.to(device)
             instance = normalize(data)
             optimizer.zero_grad()
@@ -54,7 +56,7 @@ def main(args):
             loss.backward()
             optimizer.step()
             # collecting performance information
-            pred = to_prediction(logit, model_name='CelebA')
+            pred = to_prediction(logit)
             stat = calc_groupcm_soft(pred, label, sens)
             stat = stat[np.newaxis, :]
             train_stat = train_stat+stat if len(train_stat) else stat
@@ -65,16 +67,16 @@ def main(args):
         model.eval()
         with torch.no_grad():
             # validaton loop
-            for batch_idx, (data, label) in enumerate(test_dataloader):
-                label = label.to(torch.float32)/2+0.5
-                # remove the sensitive attribute, Male
-                sens = label[:,0:1]
-                label = label[:,1:]
+            for batch_idx, (data, raw_label) in enumerate(test_dataloader):
+                raw_label = raw_label.to(torch.float32)/2+0.5 # adjust label into (0, 1)
+                sens = split_tensor_by_attribute(raw_label, attr_dim=1, attr_list=['Male',])
+                label = split_tensor_by_attribute(raw_label, attr_dim=1, attr_list=args.attr_list)
+
                 data, label, sens = data.to(device), label.to(device), sens.to(device)
                 instance = normalize(data)
                 logit = model(instance)
                 # collecting performance information
-                pred = to_prediction(logit, model_name='CelebA')
+                pred = to_prediction(logit)
                 stat = calc_groupcm_soft(pred, label, sens)
                 stat = stat[np.newaxis, :]
                 val_stat = val_stat+stat if len(val_stat) else stat
@@ -104,23 +106,26 @@ def main(args):
     start_time = time.time()
 
     for epoch in range(args.start_epoch, args.epochs):
+        epoch_start = time.time()
         train_stat_per_epoch = train()
         # scheduler.step()
         val_stat_per_epoch = val()
+        epoch_time = time.time() - epoch_start
+        print(f'Epoch {epoch:4} done in {total_time/60:.4f} mins')
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
         # print some basic statistic
-        print(f'Epoch: {epoch:02d}')
-        for a in range(46): # all attributes
-            print(f'    attribute: {a}')
+        for index, attr_name in enumerate(args.attr_list):
+            print(f'    attribute: {attr_name: >40}')
             stat_dict = get_stats_per_epoch(train_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][a], stat_dict["female_acc"][a], stat_dict["total_acc"][a]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][a], stat_dict["equalized_odds"][a]
+            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
+            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
             print(f'    train    {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
             stat_dict = get_stats_per_epoch(val_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][a], stat_dict["female_acc"][a], stat_dict["total_acc"][a]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][a], stat_dict["equalized_odds"][a]
+            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
+            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
             print(f'    val      {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
+        print(f'')
         # save model checkpoint
         save_model(model, optimizer, scheduler, name=f'{epoch:04d}', root_folder=model_ckpt_path)
     # save basic statistic
@@ -146,6 +151,7 @@ def get_args():
     parser.add_argument("--model-name", default='default_model', type=str, help='name for this model trained')
     parser.add_argument("--resume", default="", help="name of a checkpoint, without .pth")
     parser.add_argument("--start-epoch", default=0, type=int, help="start epoch, it won't do any check with the weight loaded")
+    parser.add_argument("--attr-list", type=str, nargs='+', help="attributes name predicted by model")
 
     return parser
 

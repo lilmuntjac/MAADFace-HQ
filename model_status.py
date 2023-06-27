@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# does not include gender
-attributes46 = ['Filename','Identity','Male','Young','Middle_Aged','Senior','Asian','White','Black',
+# all the attribute from the dataset
+attributes49 = ['Filename','Identity','Male','Young','Middle_Aged','Senior','Asian','White','Black',
                 'Rosy_Cheeks','Shiny_Skin','Bald','Wavy_Hair','Receding_Hairline','Bangs','Sideburns','Black_Hair','Blond_Hair','Brown_Hair','Gray_Hair',
                 'No_Beard','Mustache','5_o_Clock_Shadow','Goatee','Oval_Face','Square_Face','Round_Face','Double_Chin','High_Cheekbones','Chubby',
                 'Obstructed_Forehead','Fully_Visible_Forehead','Brown_Eyes','Bags_Under_Eyes','Bushy_Eyebrows','Arched_Eyebrows',
@@ -97,7 +97,7 @@ def main(args):
     stats = stats[args.epoch,:,:]
     # get pair of confsion matirx
     for attr in range(stats.shape[0]):
-        draw_confusion_matrixs(attributes46[attr+3], stats[attr,:],  root_folder=args.out_dir)
+        draw_confusion_matrixs(attributes49[attr+3], stats[attr,:],  root_folder=args.out_dir)
 
 def get_args():
     import argparse
