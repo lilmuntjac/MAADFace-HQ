@@ -138,6 +138,20 @@ def split_tensor_by_attribute(tensor, attr_dim=0, attr_list=[]):
         case _:
             assert False, f'only support attributes dimension less than 4'
 
+def regroup_tensor_binary(tensor, sens, regroup_dim=0):
+    # cannot distinguish negative label from the cell mask by sensitive value
+    # the tenser need to be break up into 2
+    match regroup_dim:
+        case 0:
+            group_1_tensor = tensor[sens[:,0]!=0]
+            group_2_tensor = tensor[sens[:,0]==0]
+        case 1:
+            group_1_tensor = tensor[:,sens[:,0]!=0]
+            group_2_tensor = tensor[:,sens[:,0]==0]
+        case _:
+            assert False, 'regroup dimension only support 0 and 1'
+    return group_1_tensor, group_2_tensor
+
 def calc_groupcm_soft(pred, label, sens):
     def confusion_matrix_soft(pred, label, idx):
         label_strong = torch.where(label>0.4, 1, 0)
