@@ -78,10 +78,6 @@ def main(args):
             stat = calc_groupcm_soft(pred, label, sens)
             stat = stat[np.newaxis, :]
             train_stat = train_stat+stat if len(train_stat) else stat
-
-            if batch_idx>100:
-                break
-
         return train_stat # in shape (1, attribute, 8)
     
     def val(dataloader=val_dataloader):

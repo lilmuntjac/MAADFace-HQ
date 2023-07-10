@@ -96,8 +96,9 @@ def main(args):
     print(f"The stats contain data from {stats.shape[0]} epochs, {stats.shape[1]} attributes.")
     stats = stats[args.epoch,:,:]
     # get pair of confsion matirx
+    assert len(args.attr_list) == stats.shape[0], "attributes list and stats not in the same shape"
     for attr in range(stats.shape[0]):
-        draw_confusion_matrixs(attributes49[attr+3], stats[attr,:],  root_folder=args.out_dir)
+        draw_confusion_matrixs(args.attr_list[attr], stats[attr,:],  root_folder=args.out_dir)
 
 def get_args():
     import argparse
@@ -105,6 +106,8 @@ def get_args():
     parser.add_argument("--stats", type=str, help="file path to the stats .npy file")
     parser.add_argument("-e", "--epoch", type=int, help="the epoch to get the confusion matrix on")
     parser.add_argument("-o", "--out-dir", type=str, help="output folder for attributes confusion matrix")
+
+    parser.add_argument("--attr-list", type=str, nargs='+', help="attributes name predicted by model")
 
     return parser
 

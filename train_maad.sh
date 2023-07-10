@@ -12,9 +12,9 @@ python model_maadfacehq.py --model-name MAADFaceHQ_attr46 \
             Obstructed_Forehead Fully_Visible_Forehead Brown_Eyes Bags_Under_Eyes Bushy_Eyebrows Arched_Eyebrows \
             Mouth_Closed Smiling Big_Lips Big_Nose Pointy_Nose Heavy_Makeup \
             Wearing_Hat Wearing_Earrings Wearing_Necktie Wearing_Lipstick No_Eyewear Eyeglasses Attractive \
--b 256 --epochs 5 --lr 1e-3
+-b 256 --epochs 10 --lr 1e-3
 
 # train an attribute 6 model
-# python model_maadfacehq.py --model-name MAADFaceHQ_attr6 \
-# --attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
-# -b 256 --epochs 5 --lr 1e-3
+python model_maadfacehq.py --model-name MAADFaceHQ_attr06 \
+--attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
+-b 256 --epochs 10 --lr 1e-3
