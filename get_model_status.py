@@ -52,22 +52,24 @@ def main(args):
         fig, axs  = plt.subplots(1,2, figsize=(8,4), layout='constrained')
         fig.suptitle(attr_name)
 
-        best_eqopp_epoch = stats_dict['equality_of_opportunity'].index(max(stats_dict['equality_of_opportunity']))
+        best_eqopp_epoch = stats_dict['equality_of_opportunity'].index(min(stats_dict['equality_of_opportunity']))
         left_fig = axs[0].plot(list(map(lambda x: 1.0-x, stats_dict['equality_of_opportunity'])), 
                                stats_dict['total_accuracy'], marker=marker, markersize=markersize)
         left_point = axs[0].scatter([1.0-stats_dict['equality_of_opportunity'][best_eqopp_epoch]],
                                     [stats_dict['total_accuracy'][best_eqopp_epoch]], )
+        axs[0].set_title(f'Best epoch: {best_eqopp_epoch}')
         axs[0].set_xlabel('Equality of opportunity')
         axs[0].set_ylabel('Total Accuracy')
         axs[0].set_box_aspect(1)
         axs[0].set_xlim([0.5, 1.0])
         axs[0].set_ylim([0.5, 1.0])
         
-        best_eqodd_epoch = stats_dict['equalized_odds'].index(max(stats_dict['equalized_odds']))
+        best_eqodd_epoch = stats_dict['equalized_odds'].index(min(stats_dict['equalized_odds']))
         right_fig= axs[1].plot(list(map(lambda x: 1.0-x, stats_dict['equalized_odds'])), 
                                stats_dict['total_accuracy'], marker=marker, markersize=markersize)
         right_point = axs[1].scatter([1.0-stats_dict['equalized_odds'][best_eqodd_epoch]],
                                      [stats_dict['total_accuracy'][best_eqodd_epoch]], )
+        axs[1].set_title(f'Best epoch: {best_eqodd_epoch}')
         axs[1].set_xlabel('Equalized odds')
         axs[1].set_ylabel('Total Accuracy')
         axs[1].set_box_aspect(1)
