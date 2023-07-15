@@ -42,8 +42,8 @@ def main(args):
     if args.resume:
         adv_component = load_stats(name=args.resume, root_folder=advatk_ckpt_path)
         adv_component = torch.from_numpy(adv_component).to(device)
-        train_stat = load_stats(name=args.advatk_name+'_train', root_folder=advatk_stat_path)
-        val_stat = load_stats(name=args.advatk_name+'_val', root_folder=advatk_stat_path)
+        train_stat = load_stats(name='train', root_folder=advatk_stat_path)
+        val_stat = load_stats(name='val', root_folder=advatk_stat_path)
     else:
         train_stat, val_stat = np.array([]), np.array([])
     adv_component = nn.Parameter(adv_component)
@@ -124,6 +124,16 @@ def main(args):
     print(f'Start training model')
     start_time = time.time()
 
+    if not args.resume:
+        empty_time = time.time()
+        print(f'collecting statistic for empty tweaks')
+        train_stat_per_epoch = val(train_dataloader)
+        val_stat_per_epoch = val()
+        train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
+        val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
+        print(f'done in {(time.time()-empty_time)/60:.4f} mins')
+    # some parameter might needs the init stats
+
     for epoch in range(args.start_epoch, args.epochs):
         epoch_start = time.time()
         train_stat_per_epoch = train()
@@ -147,10 +157,10 @@ def main(args):
         print(f'')
         # save the adversarial component for each epoch
         component = adv_component.detach().cpu().numpy()
-        save_stats(component, f'{args.advatk_name}_{epoch:04d}', root_folder=advatk_ckpt_path)
+        save_stats(component, f'{epoch:04d}', root_folder=advatk_ckpt_path)
     # save basic statistic
-    save_stats(train_stat, f'{args.model_name}_train', root_folder=advatk_stat_path)
-    save_stats(val_stat, f'{args.model_name}_val', root_folder=advatk_stat_path)
+    save_stats(train_stat, f'train', root_folder=advatk_stat_path)
+    save_stats(val_stat, f'val', root_folder=advatk_stat_path)
     total_time = time.time() - start_time
     print(f'Training time: {total_time/60:.4f} mins')
             

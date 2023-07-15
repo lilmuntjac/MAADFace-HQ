@@ -1,7 +1,6 @@
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # all the attribute from the dataset
 attributes49 = ['Filename','Identity','Male','Young','Middle_Aged','Senior','Asian','White','Black',
@@ -114,4 +113,3 @@ def get_args():
 if __name__ == '__main__':
     args = get_args().parse_args()
     main(args)
-

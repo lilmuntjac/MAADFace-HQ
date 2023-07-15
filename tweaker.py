@@ -87,7 +87,7 @@ class Tweaker:
     # -------------------- noise --------------------
     def add(self, x, element):
         x = x + element
-        x = torch.clamp(x, min=0.0, max=1.0)
+        x = torch.clamp(x, min=-self.noise_budget, max=self.noise_budget)
         return x
     
     # -------------------- patch --------------------
