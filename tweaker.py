@@ -191,10 +191,13 @@ class Tweaker:
                 mask = self.mask.repeat(data.shape[0], 1, 1, 1)
                 element = element.repeat(data.shape[0], 1, 1, 1)
                 grid = F.affine_grid(theta, data.shape, align_corners=False)
-                xform_mask = F.grid_sample(mask, grid, align_corners=False)
+                # xform_mask = F.grid_sample(mask, grid, align_corners=False)
                 xform_component = F.grid_sample(element, grid, mode='bilinear', align_corners=False)
-                inv_mask = 1 - xform_mask
-                tweak_data = data*inv_mask + xform_component*xform_mask
+                # inv_mask = 1 - xform_mask
+                # tweak_data = data*inv_mask + xform_component*xform_mask
+                # new ver.
+                tweak_data = data + xform_component
+                tweak_data = torch.clamp(tweak_data, min=0.0, max=1.0)
             case 'frame':
                 theta = self.get_identity_transform()
                 mask = self.mask.repeat(data.shape[0], 1, 1, 1)

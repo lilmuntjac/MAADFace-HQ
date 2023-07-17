@@ -79,9 +79,9 @@ class MAADFaceHQ:
         train_dataset = MAADFaceHQDataset(self.train_csv, self.root+'/train', transform=train_transform)
         test_dataset = MAADFaceHQDataset(self.test_csv, self.root+'/test', transform=test_transform)
         self.train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, 
-            shuffle=True, num_workers=12, pin_memory=True, drop_last=True,)
+            shuffle=True, num_workers=20, pin_memory=True, drop_last=True,)
         self.test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, 
-            shuffle=True, num_workers=12, pin_memory=True, drop_last=True,)
+            shuffle=True, num_workers=20, pin_memory=True, drop_last=True,)
 
 # -------------------- model --------------------
 class MAADFaceHQModel(torch.nn.Module):

@@ -35,7 +35,13 @@ def main(args):
     # tweaking element
     advatk_ckpt_path = Path(args.advatk_ckpt_root)/args.advatk_name
     advatk_stat_path = Path(args.advatk_stat_root)/args.advatk_name
-    adv_component = torch.full((1, 3, 224, 224), 0.5).to(device)
+    match args.adv_type:
+        case "noise" | "patch":
+            adv_component = torch.full((1, 3, 224, 224), 0.0).to(device)
+        case "frame" | "eyeglasses":
+            adv_component = torch.full((1, 3, 224, 224), 0.5).to(device)
+        case _:
+            assert False, "Unknown element type"
     tweaker = Tweaker(batch_size=args.batch_size, tweak_type=args.adv_type)
     losses = Losses(loss_type=args.loss_type, fairness_criteria=args.fairness_matrix, soft_label=True)
 
