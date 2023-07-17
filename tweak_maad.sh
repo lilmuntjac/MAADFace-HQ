@@ -47,7 +47,7 @@ export CUDA_VISIBLE_DEVICES="0"
 
 python tweak_maadfacehq.py --model-name MAADFaceHQ_attr06 --model-ckpt-name 0005 \
 --attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
---adv-type patch --advatk-ckpt-root /tmp2/npfe/patch --advatk-stat-root /tmp2/npfe/patch_stats --advatk-name lr_1_poptim \
+--adv-type patch --advatk-ckpt-root /tmp2/npfe/patch --advatk-stat-root /tmp2/npfe/patch_stats --advatk-name psmallstatic_poptim \
 -b 256 --epochs 15 --lr 1e-0 \
 --fairness-matrix "equalized odds" --loss-type "perturb optim"\
 

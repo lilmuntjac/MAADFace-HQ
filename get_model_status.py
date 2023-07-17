@@ -61,8 +61,8 @@ def main(args):
         axs[0].set_xlabel('Equality of opportunity')
         axs[0].set_ylabel('Total Accuracy')
         axs[0].set_box_aspect(1)
-        axs[0].set_xlim([0.5, 1.0])
-        axs[0].set_ylim([0.5, 1.0])
+        axs[0].set_xlim([0.75, 1.0])
+        axs[0].set_ylim([0.75, 1.0])
         
         best_eqodd_epoch = stats_dict['equalized_odds'].index(min(stats_dict['equalized_odds']))
         right_fig= axs[1].plot(list(map(lambda x: 1.0-x, stats_dict['equalized_odds'])), 
@@ -73,8 +73,8 @@ def main(args):
         axs[1].set_xlabel('Equalized odds')
         axs[1].set_ylabel('Total Accuracy')
         axs[1].set_box_aspect(1)
-        axs[1].set_xlim([0.5, 1.0])
-        axs[1].set_ylim([0.5, 1.0])
+        axs[1].set_xlim([0.75, 1.0])
+        axs[1].set_ylim([0.75, 1.0])
         
         fig.savefig(fig_path,)
         plt.close(fig)

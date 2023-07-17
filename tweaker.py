@@ -26,7 +26,7 @@ class Tweaker:
     noise_budget: float = 0.0625
     circle_sharpness: float = 40.
     circle_rotation: float = 0.083
-    circle_ratio: tuple[float, float] = (0.06, 0.09)
+    circle_ratio: tuple[float, float] = (0.02, 0.03)
     frame_thickness: float = 0.25
     face_detector: dlib.cnn_face_detection_model_v1 = \
         dlib.cnn_face_detection_model_v1('./dlib_models/mmod_human_face_detector.dat')
@@ -111,7 +111,7 @@ class Tweaker:
             )
             xform_matrix = torch.mm(rot_matrix, scale_matrix)
             # translation
-            avoid_from_center = 0.25
+            avoid_from_center = 0.5
             range_min, range_max = avoid_from_center+scale, 1-scale
             if range_min >= range_max:
                 print(f'range min: {range_min}, range max: {range_max}')
@@ -120,7 +120,7 @@ class Tweaker:
             while True:
                 rnd_min, rnd_max = -(1-scale), 1-scale
                 shift_x, shift_y = (rnd_min-rnd_max)*torch.rand(2) + rnd_max
-                if shift_x >= range_min or shift_y >= range_min:
+                if abs(shift_x) >= range_min or abs(shift_y) >= range_min:
                     break
             shift_x, shift_y = shift_x*inv_scale, shift_y*inv_scale
             # if scale <= 1.0:
@@ -382,14 +382,14 @@ class Losses:
         match self.fairness_criteria:
             case 'equality of opportunity':
                 pret_eqopp = perturbed(perturbed_eqopp, 
-                                     num_samples=10000,
+                                     num_samples=100000,
                                      sigma=0.5,
                                      noise='gumbel',
                                      batched=False)
                 loss_per_attr = pret_eqopp(logit)
             case 'equalized odds':
                 pret_eqodd = perturbed(perturbed_eqodd, 
-                         num_samples=10000,
+                         num_samples=100000,
                          sigma=0.5,
                          noise='gumbel',
                          batched=False)
