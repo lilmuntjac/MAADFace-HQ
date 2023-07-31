@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.datasets import MAADFaceHQ
+from src.datasets import CelebA
 from src.models import BinaryModel
 from src.tweaker import Tweaker, Losses
 from src.utils import *
@@ -18,13 +18,13 @@ def main(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-    # dataset, dataloader (MAADFace-HQ)
+    # dataset, dataloader (CelebA)
     all_attr_list = args.attr_list.copy()
     all_attr_list.append("Male") # add the sensitive atttribute
-    maadface_hq = MAADFaceHQ(batch_size=args.batch_size, attr_list=all_attr_list)
-    train_dataloader = maadface_hq.train_dataloader
-    val_dataloader = maadface_hq.test_dataloader
-    
+    celeba = CelebA(batch_size=args.batch_size, attr_list=all_attr_list)
+    train_dataloader = celeba.train_dataloader
+    val_dataloader = celeba.val_dataloader
+
     # the base model, optimizer, and scheduler
     attr_count = len(args.attr_list)
     print(f'Calling model capable of predicting {attr_count} attributes.')

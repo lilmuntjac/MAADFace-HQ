@@ -1,114 +1,9 @@
-from dataclasses import dataclass, field
-from typing import Tuple
-from collections import OrderedDict
 from pathlib import Path
-from PIL import Image
 import numpy as np
-import pandas as pd
 
 import torch
 import torch.nn as nn
 from torchvision import datasets, models, transforms
-
-# -------------------- dataset --------------------
-class MAADFaceHQDataset(torch.utils.data.Dataset):
-    """Custom pytorch Dataset class for MAAD-Face-HQ dataset"""
-
-    def __init__(self, csv_file, root_dir, transform=None):
-        self.attributes = pd.read_csv(csv_file)
-        self.root_dir = Path(root_dir)
-        self.transform = transform
-        self.attribute_list = ['Filename','Identity','Male','Young','Middle_Aged','Senior','Asian','White','Black',
-                               'Rosy_Cheeks','Shiny_Skin','Bald','Wavy_Hair','Receding_Hairline','Bangs','Sideburns','Black_Hair','Blond_Hair','Brown_Hair','Gray_Hair',
-                               'No_Beard','Mustache','5_o_Clock_Shadow','Goatee','Oval_Face','Square_Face','Round_Face','Double_Chin','High_Cheekbones','Chubby',
-                               'Obstructed_Forehead','Fully_Visible_Forehead','Brown_Eyes','Bags_Under_Eyes','Bushy_Eyebrows','Arched_Eyebrows',
-                               'Mouth_Closed','Smiling','Big_Lips','Big_Nose','Pointy_Nose','Heavy_Makeup',
-                               'Wearing_Hat','Wearing_Earrings','Wearing_Necktie','Wearing_Lipstick','No_Eyewear','Eyeglasses','Attractive']
-    
-    def __len__(self):
-        return len(self.attributes.index)
-    
-    def __getitem__(self, index: int):
-        X = Image.open(self.root_dir / self.attributes.iloc[index]['Filename'])
-        if self.transform:
-            X = self.transform(X)
-
-        target = self.attributes.iloc[index][self.attribute_list[2:]] # binary attributes
-        target = torch.tensor(target)
-        return X, target
-
-@dataclass
-class MAADFaceHQ:
-    """
-    get train and test dataloader from MAAD-Face-HQ dataset
-    attribute source: https://github.com/pterhoer/MAAD-Face
-    image is from Vggface2-HQ: https://github.com/NNNNAI/VGGFace2-HQ
-    """
-
-    batch_size: int = 128
-    root: str = '/tmp2/dataset/MAADFace_HQ'
-    train_csv: str = '/tmp2/dataset/MAADFace_HQ/MAADFace_HQ_train.csv'
-    test_csv: str = '/tmp2/dataset/MAADFace_HQ/MAADFace_HQ_test.csv'
-    mean: Tuple = (0.485, 0.456, 0.406)  # same as ImageNet
-    std: Tuple = (0.229, 0.224, 0.225)
-
-    train_dataloader: torch.utils.data.DataLoader = field(init=False)
-    val_dataloader: torch.utils.data.DataLoader = field(init=False)
-
-    def __post_init__(self):
-        train_transform: transforms.transforms.Compose = \
-            transforms.Compose([
-                transforms.TrivialAugmentWide(),
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                # To do extra operation onto the image
-                # we decided to normalize the image right before passing it into the model
-                # transforms.Normalize(mean, std),
-                # because of this, random erasing pixel as imagenet mean, not zero
-                # transforms.RandomErasing(0.2, value=self.mean),
-            ])
-        test_transform: transforms.transforms.Compose = \
-            transforms.Compose([
-                transforms.Resize((224, 224)), 
-                transforms.ToTensor(),
-                # To do extra operation onto the image
-                # we decided to normalize the image right before passing it into the model
-                # transforms.Normalize(mean, std),
-            ])
-        # select the dataset source
-        train_dataset = MAADFaceHQDataset(self.train_csv, self.root+'/train', transform=train_transform)
-        test_dataset = MAADFaceHQDataset(self.test_csv, self.root+'/test', transform=test_transform)
-        self.train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, 
-            shuffle=True, num_workers=20, pin_memory=True, drop_last=True,)
-        self.test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, 
-            shuffle=True, num_workers=20, pin_memory=True, drop_last=True,)
-
-# -------------------- model --------------------
-class MAADFaceHQModel(torch.nn.Module):
-    """
-    MAADFace-HQ attribute prediction model,
-    change the "out_feature" for number of attributes predicted.
-        47: All attributes of MAADFace-HQ
-    """
-
-    def __init__(self, out_feature=46, weights='ResNet34_Weights.DEFAULT'):
-        super(MAADFaceHQModel, self).__init__()
-        self.model = models.resnet34(weights=weights)
-        in_feature = self.model.fc.in_features
-        self.model.fc = nn.Sequential(OrderedDict([
-            ('fc', nn.Linear(in_feature, out_feature)),
-            ('sigm', nn.Sigmoid()),
-        ]))
-
-    def forward(self, x):
-        """
-        Input:
-            x: Image of faces        (N, C, H, W)
-        Output:
-            z: attribute predictions (N, out_feature)
-        """
-        z = self.model(x)
-        return z
 
 # -------------------- fairness related --------------------
 # all the binary attribute
@@ -152,6 +47,20 @@ def regroup_tensor_binary(tensor, sens, regroup_dim=0):
             assert False, 'regroup dimension only support 0 and 1'
     return group_1_tensor, group_2_tensor
 
+def divide_tensor_binary(tensor, divide_dim=0):
+    # cut the tensor in half
+    div = tensor.shape[divide_dim] // 2
+    match divide_dim:
+        case 0:
+            group_1_tensor = tensor[0:div]
+            group_2_tensor = tensor[div:]
+        case 1:
+            group_1_tensor = tensor[:,0:div]
+            group_2_tensor = tensor[:,div:]
+        case _:
+            assert False, 'regroup dimension only support 0 and 1'
+    return group_1_tensor, group_2_tensor
+            
 def calc_groupcm_soft(pred, label, sens):
     def confusion_matrix_soft(pred, label, idx):
         label_strong = torch.where(label>0.4, 1, 0)

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.datasets import MAADFaceHQ
+from src.datasets import CelebA
 from src.models import BinaryModel
 from src.utils import *
 
@@ -17,13 +17,13 @@ def main(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-    # dataset, dataloader (MAADFace-HQ)
+    # dataset, dataloader (CelebA)
     all_attr_list = args.attr_list.copy()
     all_attr_list.append("Male") # add the sensitive atttribute
-    maadface_hq = MAADFaceHQ(batch_size=args.batch_size, attr_list=all_attr_list)
-    train_dataloader = maadface_hq.train_dataloader
-    test_dataloader = maadface_hq.test_dataloader
-    
+    celeba = CelebA(batch_size=args.batch_size, attr_list=all_attr_list)
+    train_dataloader = celeba.train_dataloader
+    val_dataloader = celeba.val_dataloader
+
     # model, optimizer, and scheduler
     attr_count = len(args.attr_list)
     print(f'Calling model capable of predicting {attr_count} attributes.')
@@ -48,7 +48,8 @@ def main(args):
         model.train()
         # training loop
         for batch_idx, (data, raw_label) in enumerate(train_dataloader):
-            label, sens = raw_label[:,:-1], raw_label[:,-1:None]        
+            raw_label = raw_label.to(torch.float32)
+            label, sens = raw_label[:,:-1], raw_label[:,-1:None]
             data, label, sens = data.to(device), label.to(device), sens.to(device)
             instance = normalize(data)
             optimizer.zero_grad()
@@ -68,7 +69,8 @@ def main(args):
         model.eval()
         with torch.no_grad():
             # validaton loop
-            for batch_idx, (data, raw_label) in enumerate(test_dataloader):
+            for batch_idx, (data, raw_label) in enumerate(val_dataloader):
+                raw_label = raw_label.to(torch.float32)
                 label, sens = raw_label[:,:-1], raw_label[:,-1:None]            
                 data, label, sens = data.to(device), label.to(device), sens.to(device)
                 instance = normalize(data)

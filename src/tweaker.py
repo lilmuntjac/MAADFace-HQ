@@ -11,9 +11,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, models, transforms
-from perturbations import *
-
-from utils import *
+from .perturbations import *
+from .utils import *
 
 @dataclass
 class Tweaker:
@@ -364,16 +363,20 @@ class Losses:
         def perturbed_eqopp(x, label=label, sens=sens):
             pred = torch.where(x> 0.5, 1, 0)
             label_duped = label.repeat(x.shape[0], 1, 1)
-            group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
-            group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            # group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
+            # group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
+            group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
             group_1_tpr = self.get_tpr(group_1_pred, group_1_label, batch_dim=1)
             group_2_tpr = self.get_tpr(group_2_pred, group_2_label, batch_dim=1)
             return torch.abs(group_1_tpr-group_2_tpr)
         def perturbed_eqodd(x, label=label, sens=sens):
             pred = torch.where(x> 0.5, 1, 0)
             label_duped = label.repeat(x.shape[0], 1, 1)
-            group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
-            group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            # group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
+            # group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
+            group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
             group_1_tpr = self.get_tpr(group_1_pred, group_1_label, batch_dim=1)
             group_2_tpr = self.get_tpr(group_2_pred, group_2_label, batch_dim=1)
             group_1_tnr = self.get_tnr(group_1_pred, group_1_label, batch_dim=1)
