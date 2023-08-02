@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 from torchvision.utils import save_image
 
-from utils import *
-from tweaker import *
+from src.tweaker import Tweaker, Losses
+from src.utils import *
 
 def main(args):
     print('Pytorch is running on version: ' + torch.__version__)

@@ -11,6 +11,10 @@ export CUDA_VISIBLE_DEVICES="0"
 # --attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
 # -o ./eval
 
-python get_model_status.py --stats /tmp2/npfe/patch_stats/pmuilti_poptim/val.npy \
---attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
+# python get_model_status.py --stats /tmp2/npfe/patch_stats/pmuilti_poptim/val.npy \
+# --attr-list Young Shiny_Skin Oval_Face High_Cheekbones Smiling Big_Lips \
+# -o ./eval
+
+python get_model_status.py --stats /tmp2/npfe/eyeglasses_stats/celeba_poptim/val.npy \
+--attr-list Attractive High_Cheekbones Mouth_Slightly_Open Smiling \
 -o ./eval

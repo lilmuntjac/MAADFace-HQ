@@ -21,10 +21,10 @@ def main(args):
                 equality_of_opportunity = -1
                 equalized_odds = -1
             else:
-                group_1_tpr = group_1_tp/(group_1_tp+group_1_fp)
-                group_2_tpr = group_2_tp/(group_2_tp+group_2_fp)
-                group_1_tnr = group_1_tn/(group_1_fn+group_1_tn)
-                group_2_tnr = group_2_tn/(group_2_fn+group_2_tn)
+                group_1_tpr = group_1_tp/(group_1_tp+group_1_fn)
+                group_2_tpr = group_2_tp/(group_2_tp+group_2_fn)
+                group_1_tnr = group_1_tn/(group_1_fp+group_1_tn)
+                group_2_tnr = group_2_tn/(group_2_fp+group_2_tn)
                 equality_of_opportunity = abs(group_1_tpr-group_2_tpr) # (0, 1)
                 equalized_odds = abs(group_1_tpr-group_2_tpr) + abs(group_1_tnr-group_2_tnr) # (0, 2)
             total_accuracy_list.append(total_accuracy)
@@ -61,8 +61,8 @@ def main(args):
         axs[0].set_xlabel('Equality of opportunity')
         axs[0].set_ylabel('Total Accuracy')
         axs[0].set_box_aspect(1)
-        axs[0].set_xlim([0.75, 1.0])
-        axs[0].set_ylim([0.75, 1.0])
+        axs[0].set_xlim([0.5, 1.0])
+        axs[0].set_ylim([0.5, 1.0])
         
         best_eqodd_epoch = stats_dict['equalized_odds'].index(min(stats_dict['equalized_odds']))
         right_fig= axs[1].plot(list(map(lambda x: 1.0-x, stats_dict['equalized_odds'])), 
@@ -73,9 +73,9 @@ def main(args):
         axs[1].set_xlabel('Equalized odds')
         axs[1].set_ylabel('Total Accuracy')
         axs[1].set_box_aspect(1)
-        axs[1].set_xlim([0.75, 1.0])
-        axs[1].set_ylim([0.75, 1.0])
-        
+        axs[1].set_xlim([0.5, 1.0])
+        axs[1].set_ylim([0.5, 1.0])
+        print(stats_dict['equalized_odds'])
         fig.savefig(fig_path,)
         plt.close(fig)
 
