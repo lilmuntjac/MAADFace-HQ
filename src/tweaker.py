@@ -236,6 +236,8 @@ class Tweaker:
 class Losses:
     loss_type: str
     fairness_criteria: str
+    pred_type: str
+    out_feature: int = 0
     soft_label: bool = False
 
     # -------------------- cell mask --------------------
@@ -280,7 +282,7 @@ class Losses:
         tnr[tnr_mask] = numerator[tnr_mask]/denominator[tnr_mask]
         return tnr
 
-    # -------------------- losses --------------------
+    # -------------------- losses (binary) --------------------
     def get_bce_by_cells(self, logit, label, cells=['tp', 'fn', 'fp', 'tn']):
         # get the binary cross entropy loss per attributes with specific cm cells
         # get cells type
@@ -302,7 +304,7 @@ class Losses:
         bce_per_ins = F.binary_cross_entropy(logit, label, reduction='none')
         return torch.mul(bce_per_ins, cell_mask)
 
-    def direct_loss(self, logit, label, sens):
+    def binary_direct_loss(self, logit, label, sens):
         # approximate prediction using a very steep function
         pred = 1./(1+torch.exp(-1e4*logit-0.5))
         group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=0)
@@ -322,7 +324,7 @@ class Losses:
                 assert False, f'unrecognized fairness criteria'
         return torch.mean(loss_per_attr)
     
-    def masking_loss(self, logit, label, sens):
+    def binary_masking_loss(self, logit, label, sens):
         # find the relation between groups
         pred = 1./(1+torch.exp(-1e4*logit-0.5))
         group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=0)
@@ -358,25 +360,25 @@ class Losses:
                 assert False, f'unrecognized fairness criteria'
         return torch.mean(loss_per_attr)
 
-    def perturb_loss(self, logit, label, sens):
+    def binary_perturb_loss(self, logit, label, sens):
         # fairness function
         def perturbed_eqopp(x, label=label, sens=sens):
             pred = torch.where(x> 0.5, 1, 0)
             label_duped = label.repeat(x.shape[0], 1, 1)
-            # group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
-            # group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
-            group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
-            group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
+            group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
+            group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            # group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
+            # group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
             group_1_tpr = self.get_tpr(group_1_pred, group_1_label, batch_dim=1)
             group_2_tpr = self.get_tpr(group_2_pred, group_2_label, batch_dim=1)
             return torch.abs(group_1_tpr-group_2_tpr)
         def perturbed_eqodd(x, label=label, sens=sens):
             pred = torch.where(x> 0.5, 1, 0)
             label_duped = label.repeat(x.shape[0], 1, 1)
-            # group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
-            # group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
-            group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
-            group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
+            group_1_pred, group_2_pred = regroup_tensor_binary(pred, sens, regroup_dim=1)
+            group_1_label, group_2_label = regroup_tensor_binary(label_duped, sens, regroup_dim=1)
+            # group_1_pred, group_2_pred = divide_tensor_binary(pred, divide_dim=1)
+            # group_1_label, group_2_label = divide_tensor_binary(label_duped, divide_dim=1)
             group_1_tpr = self.get_tpr(group_1_pred, group_1_label, batch_dim=1)
             group_2_tpr = self.get_tpr(group_2_pred, group_2_label, batch_dim=1)
             group_1_tnr = self.get_tnr(group_1_pred, group_1_label, batch_dim=1)
@@ -401,14 +403,153 @@ class Losses:
                 assert False, f'unrecognized fairness criteria'
         return torch.mean(loss_per_attr)
 
-    def run(self, logit, label, sens):
-        match self.loss_type:
-            case 'direct':
-                loss = self.direct_loss(logit, label, sens)
-            case 'masking':
-                loss = self.masking_loss(logit, label, sens)
-            case 'perturb optim':
-                loss = self.perturb_loss(logit, label, sens)
+    # -------------------- losses (categorical) --------------------
+    def categori_filter_logit(self, logit, batch_dim=0):
+        # check the out_feature match the logit shape
+        match (self.out_feature, batch_dim):
+            case (11, 0) | (16, 0) | (18, 0):
+                assert logit.shape[1] == self.out_feature, "model out feature mismatch"
+            case (11, 1) | (16, 1) | (18, 1):
+                assert logit.shape[2] == self.out_feature, "model out feature mismatch"
             case _:
-                assert False, f'do not support such loss type'
+                assert False, "check the model out feature"
+        # divide the logit
+        match (self.out_feature, batch_dim):
+            case (11, 0):
+                return logit[:,0:2], logit[:,2:11]
+            case (16, 0):
+                return logit[:,0:5], logit[:,5:7], logit[:,7:16]
+            case (18, 0):
+                return logit[:,0:7], logit[:,7:9], logit[:,9:18]
+            case (11, 1):
+                return logit[:,:,0:2], logit[:,:,2:11]
+            case (16, 1):
+                return logit[:,:,0:5], logit[:,:,5:7], logit[:,:,7:16]
+            case (18, 1):
+                return logit[:,:,0:7], logit[:,:,7:9], logit[:,:,9:18]
+    
+    def categori_to_prediction(self, logit, batch_dim=0):
+        # encode in index
+        _, pred = torch.max(logit, dim=batch_dim+1)
+        return pred
+    
+    def categori_to_approx_prediction(self, logit, batch_dim=0):
+        # encode in one hot 
+        softmaxed = F.softmax(logit, dim=batch_dim+1)
+        pred = 1./(1+torch.exp(-1e2*(softmaxed-0.5)))
+        return pred
+
+    def categori_direct_loss(self, logit, label, sens):
+        if self.out_feature == 11:
+            gender_logit, age_logit = self.categori_filter_logit(logit, batch_dim=0)
+            gender_pred, age_pred = map(self.categori_to_approx_prediction, [gender_logit, age_logit], [0,0])
+            gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1]], [2,9])
+            gender_result, age_result = torch.sum(gender_pred*gender_label, dim=1), torch.sum(age_pred*age_label, dim=1)
+            result = torch.stack((gender_result, age_result), dim=1)
+        else:
+            race_logit, gender_logit, age_logit = self.categori_filter_logit(logit, batch_dim=0)
+            race_pred, gender_pred, age_pred = map(self.categori_to_approx_prediction, [race_logit, gender_logit, age_logit], [0,0,0])
+            if self.out_feature == 16:
+                race_label, gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1], label[:,2]], [5,2,9])
+            elif self.out_feature == 18:
+                race_label, gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1], label[:,2]], [7,2,9])
+            race_result, gender_result, age_result = torch.sum(race_pred*race_label, dim=1), torch.sum(gender_pred*gender_label, dim=1), torch.sum(age_pred*age_label, dim=1)
+            result = torch.stack((race_result, gender_result, age_result), dim=1)
+        group_1_result, group_2_result = regroup_tensor_categori(result, sens, regroup_dim=0)
+        group_1_total, group_2_total = group_1_result.shape[0], group_2_result.shape[0]
+        # fairness target on age
+        if self.out_feature == 11:
+            group_1_acc, group_2_acc = group_1_result[:,1].sum()/(group_1_total+1e-9), group_2_result[:,1].sum()/(group_2_total+1e-9)
+        else:
+            group_1_acc, group_2_acc = group_1_result[:,2].sum()/(group_1_total+1e-9), group_2_result[:,2].sum()/(group_2_total+1e-9)
+        loss = torch.abs(group_1_acc-group_2_acc)
+        return torch.mean(loss)
+
+    def categori_masking_loss(self, logit, label, sens):
+        if self.out_feature == 11:
+            gender_logit, age_logit = self.categori_filter_logit(logit, batch_dim=0)
+            gender_pred, age_pred = map(self.categori_to_approx_prediction, [gender_logit, age_logit], [0,0])
+            gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1]], [2,9])
+            gender_result, age_result = torch.sum(gender_pred*gender_label, dim=1), torch.sum(age_pred*age_label, dim=1)
+            result = torch.stack((gender_result, age_result), dim=1)
+        else:
+            race_logit, gender_logit, age_logit = self.categori_filter_logit(logit, batch_dim=0)
+            race_pred, gender_pred, age_pred = map(self.categori_to_approx_prediction, [race_logit, gender_logit, age_logit], [0,0,0])
+            if self.out_feature == 16:
+                race_label, gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1], label[:,2]], [5,2,9])
+            elif self.out_feature == 18:
+                race_label, gender_label, age_label = map(F.one_hot, [label[:,0], label[:,1], label[:,2]], [7,2,9])
+            race_result, gender_result, age_result = torch.sum(race_pred*race_label, dim=1), torch.sum(gender_pred*gender_label, dim=1), torch.sum(age_pred*age_label, dim=1)
+            result = torch.stack((race_result, gender_result, age_result), dim=1)
+        group_1_result, group_2_result = regroup_tensor_categori(result, sens, regroup_dim=0)
+        group_1_total, group_2_total = group_1_result.shape[0], group_2_result.shape[0]
+        # fairness target on age
+        if self.out_feature == 11:
+            group_1_acc, group_2_acc = group_1_result[:,1].sum()/(group_1_total+1e-9), group_2_result[:,1].sum()/(group_2_total+1e-9)
+            loss_CE_age = F.cross_entropy(age_logit, label[:,1], reduction='none')
+        else:
+            group_1_acc, group_2_acc = group_1_result[:,2].sum()/(group_1_total+1e-9), group_2_result[:,2].sum()/(group_2_total+1e-9)
+            loss_CE_age = F.cross_entropy(age_logit, label[:,2], reduction='none')
+        group_1_coef, group_2_coef = torch.where(group_1_acc > group_2_acc, -1 ,0), torch.where(group_2_acc > group_1_acc, -1 ,0)
+        group_1_CE, group_2_CE = regroup_tensor_categori(loss_CE_age, sens, regroup_dim=0)
+        loss = torch.cat((group_1_CE*group_1_coef, group_2_CE*group_2_coef), 0) # in shape (N)
+        return torch.mean(loss)
+
+    def categori_perturb_loss(self, logit, label, sens):
+        # unfinished
+        def perturbed_pq(x, label=label):
+            if self.out_feature == 11:
+                gender_logit, age_logit = self.categori_filter_logit(x, batch_dim=1)
+                gender_pred, age_pred = map(self.categori_to_prediction, [gender_logit, age_logit], [1,1])
+                label_duped = label.repeat(x.shape[0], 1, 1)
+                gender_label, age_label = label_duped[:,:,0], label_duped[:,:,1]
+                gender_result, age_result = torch.eq(gender_pred, gender_label), torch.eq(age_pred, age_label)
+                result = torch.stack((gender_result, age_result), dim=2)
+            else:
+                race_logit, gender_logit, age_logit = self.categori_filter_logit(x, batch_dim=1)
+                race_pred, gender_pred, age_pred = map(self.categori_to_prediction, [race_logit, gender_logit, age_logit], [0,0,0])
+                label_duped = label.repeat(x.shape[0], 1, 1)
+                race_label, gender_label, age_label = label_duped[:,:,0], label_duped[:,:,1], label_duped[:,:,2]
+                race_result, gender_result, age_result = torch.sum(torch.eq(race_pred, race_label), dim=1), torch.sum(torch.eq(gender_pred, gender_label), dim=1), torch.sum(torch.eq(age_pred, age_label), dim=1)
+                result = torch.stack((race_result, gender_result, age_result), dim=2)
+            group_1_result, group_2_result = regroup_tensor_categori(result, sens, regroup_dim=1)
+            group_1_total, group_2_total = group_1_result.shape[1], group_2_result.shape[1]
+            # fairness target on age
+            if self.out_feature == 11:
+                group_1_acc, group_2_acc = torch.sum(group_1_result[:,:,1], dim=1)/(group_1_total+1e-9), torch.sum(group_2_result[:,:,1], dim=1)/(group_2_total+1e-9)
+            else:
+                group_1_acc, group_2_acc = torch.sum(group_1_result[:,:,2], dim=1)/(group_1_total+1e-9), torch.sum(group_2_result[:,:,2], dim=1)/(group_2_total+1e-9)
+            perturbed_loss = torch.abs(group_1_acc-group_2_acc)
+            return perturbed_loss
+        # Turns a function into a differentiable one via perturbations
+        pret_pq = perturbed(perturbed_pq, 
+                             num_samples=10000,
+                             sigma=0.5,
+                             noise='gumbel',
+                             batched=False)
+        # loss perturbed_loss
+        loss = pret_pq(logit)
+        return torch.mean(loss)
+
+    def run(self, logit, label, sens):
+        if self.pred_type == 'binary':
+            match self.loss_type:
+                case 'direct':
+                    loss = self.binary_direct_loss(logit, label, sens)
+                case 'masking':
+                    loss = self.binary_masking_loss(logit, label, sens)
+                case 'perturb optim':
+                    loss = self.binary_perturb_loss(logit, label, sens)
+                case _:
+                    assert False, f'do not support such loss type'
+        elif self.pred_type == 'categorical':
+            match self.loss_type:
+                case 'direct':
+                    loss = self.categori_direct_loss(logit, label, sens)
+                case 'masking':
+                    loss = self.categori_masking_loss(logit, label, sens)
+                case 'perturb optim':
+                    loss = self.categori_perturb_loss(logit, label, sens)
+                case _:
+                    assert False, f'do not support such loss type'
         return loss

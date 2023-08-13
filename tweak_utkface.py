@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.datasets import CelebA
-from src.models import BinaryModel
+from src.datasets import UTKFace
+from src.models import CategoricalModel
 from src.tweaker import Tweaker, Losses
 from src.utils import *
 
@@ -18,24 +18,21 @@ def main(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-    # dataset, dataloader (CelebA)
-    all_attr_list = args.attr_list.copy()
-    all_attr_list.append("Male") # add the sensitive atttribute
-    celeba = CelebA(batch_size=args.batch_size, attr_list=all_attr_list)
-    train_dataloader = celeba.train_dataloader
-    val_dataloader = celeba.val_dataloader
+    # dataset, dataloader (UTKFace)
+    utkface = UTKFace(batch_size=args.batch_size)
+    train_dataloader = utkface.train_dataloader
+    val_dataloader = utkface.val_dataloader
 
     # the base model, optimizer, and scheduler
-    attr_count = len(args.attr_list)
-    print(f'Calling model capable of predicting {attr_count} attributes.')
-    model = BinaryModel(out_feature=attr_count, weights=None).to(device)
+    print(f'Calling model predicting gender and age')
+    model = CategoricalModel(out_feature=11, weights=None).to(device)
     _optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=1e-5
     )
     _scheduler = torch.optim.lr_scheduler.StepLR(_optimizer, step_size=30, gamma=0.1)
     model_ckpt_path = Path(args.model_ckpt_root)/args.model_name
     load_model(model, _optimizer, _scheduler, name=args.model_ckpt_name, root_folder=model_ckpt_path)
-
+    
     # tweaking element
     advatk_ckpt_path = Path(args.advatk_ckpt_root)/args.advatk_name
     advatk_stat_path = Path(args.advatk_stat_root)/args.advatk_name
@@ -48,7 +45,7 @@ def main(args):
             assert False, "Unknown element type"
     tweaker = Tweaker(batch_size=args.batch_size, tweak_type=args.adv_type)
     losses = Losses(loss_type=args.loss_type, fairness_criteria=args.fairness_matrix, 
-                    pred_type='binary', soft_label=True)
+                    pred_type='categorical', out_feature=11, soft_label=True)
 
     if args.resume:
         adv_component = load_stats(name=args.resume, root_folder=advatk_ckpt_path)
@@ -60,10 +57,15 @@ def main(args):
     adv_component = nn.Parameter(adv_component)
     adversary_optimizer = torch.optim.SGD([adv_component], lr=args.lr, momentum=1e-6)
     adversary_scheduler = torch.optim.lr_scheduler.StepLR(adversary_optimizer, step_size=1, gamma=0.9)
-    p_coef = torch.tensor(args.p_coef).to(device)
-    n_coef = torch.tensor(args.n_coef).to(device)
+    coef = torch.tensor(args.coef).to(device) 
     total_time = time.time() - start_time
     print(f'Preparation done in {total_time:.4f} secs')
+
+    def to_prediction(logit):
+        _, gender_pred = torch.max(logit[:,0:2], dim=1)
+        _, age_pred = torch.max(logit[:,2:11], dim=1)
+        pred = torch.stack((gender_pred, age_pred), dim=1)
+        return pred
 
     # train and validation function
     def train():
@@ -74,7 +76,7 @@ def main(args):
             data, raw_label = data.to(device), raw_label.to(device)
             # tweak on data
             data, raw_label = tweaker.apply(data, raw_label, adv_component)
-            label, sens = raw_label[:,:-1], raw_label[:,-1:None]
+            sens, label = raw_label[:,0:1], raw_label[:,1:]
             instance = normalize(data)
             adversary_optimizer.zero_grad()
             logit = model(instance)
@@ -88,60 +90,54 @@ def main(args):
             tweaker.retify(adv_component)
             # collecting performance information
             pred = to_prediction(logit)
-            stat = calc_groupcm_soft(pred, label, sens)
+            stat = calc_groupacc(pred, label, sens)
             stat = stat[np.newaxis, :]
             train_stat = train_stat+stat if len(train_stat) else stat
-        return train_stat # in shape (1, attribute, 8)
+        return train_stat # in shape (1, ?, 4), ?: race + gender + age, 4: split in 2 groups x (right and wrong)
     
     def val(dataloader=val_dataloader):
         val_stat = np.array([])
         model.eval()
         with torch.no_grad():
             # validaton loop
-            for batch_idx, (data, raw_label) in enumerate(dataloader):
+            for batch_idx, (data, raw_label) in enumerate(train_dataloader):
                 data, raw_label = data.to(device), raw_label.to(device)
                 # tweak on data
                 data, raw_label = tweaker.apply(data, raw_label, adv_component)
-                label, sens = raw_label[:,:-1], raw_label[:,-1:None]
+                sens, label = raw_label[:,0:1], raw_label[:,1:]
                 instance = normalize(data)
                 logit = model(instance)
                 # collecting performance information
                 pred = to_prediction(logit)
-                stat = calc_groupcm_soft(pred, label, sens)
+                stat = calc_groupacc(pred, label, sens)
                 stat = stat[np.newaxis, :]
                 val_stat = val_stat+stat if len(val_stat) else stat
-            return val_stat # in shape (1, attribute, 8)
+            return val_stat # in shape (1, ?, 4), ?: race + gender + age, 4: split in 2 groups x (right and wrong)
     # summarize the status in validation set for some adjustment
     def get_stats_per_epoch(stat):
-        # Input: statistics for a single epochs, shape (1, attributes, 8)
-        mtp, mfp, mfn, mtn = [stat[0,:,i] for i in range(0, 4)]
-        ftp, ffp, ffn, ftn = [stat[0,:,i] for i in range(4, 8)]
-        # Accuracy
-        macc = (mtp+mtn)/(mtp+mfp+mfn+mtn)
-        facc = (ftp+ftn)/(ftp+ffp+ffn+ftn)
-        tacc = (mtp+mtn+ftp+ftn)/(mtp+mfp+mfn+mtn+ftp+ffp+ffn+ftn)
-        # Fairness
-        mtpr, mtnr = mtp/(mtp+mfn), mtn/(mtn+mfp)
-        ftpr, ftnr = ftp/(ftp+ffn), ftn/(ftn+ffp)
-        tpr_diff, tnr_diff = abs(mtpr-ftpr), abs(mtnr-ftnr)
-        equality_of_opportunity = tpr_diff
-        equalized_odds = tpr_diff+tnr_diff
-        stat_dict = {"male_acc": macc, "female_acc": facc, "total_acc": tacc,
-                     "tpr_diff": tpr_diff, "tnr_diff": tnr_diff, 
-                     "equality_of_opportunity": equality_of_opportunity, "equalized_odds": equalized_odds}
+        # Input: statistics for a single epochs, shape (1, ?, 4)
+        group_1_correct, group_1_wrong, group_2_correct, group_2_wrong = [stat[0,:,i] for i in range(0, 4)]
+        group_1_acc = group_1_correct/(group_1_correct+group_1_wrong)
+        group_2_acc = group_2_correct/(group_2_correct+group_2_wrong)
+        total_acc = (group_1_correct+group_2_correct)/(group_1_correct+group_1_wrong+group_2_correct+group_2_wrong)
+        acc_diff = abs(group_1_acc-group_2_acc)
+        stat_dict = {"group_1_acc": group_1_acc, "group_2_acc": group_2_acc, 
+                     "total_acc": total_acc, "acc_diff": acc_diff}
         return stat_dict
     # print the epoch status on to the terminal
     def show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch):
-        for index, attr_name in enumerate(args.attr_list):
+        # attr_list = ["Race", "Gender", "Age"]
+        attr_list = ["Gender", "Age"]
+        for index, attr_name in enumerate(attr_list):
             print(f'    attribute: {attr_name: >40}')
             stat_dict = get_stats_per_epoch(train_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
-            print(f'    train    {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
+            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
+            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
+            print(f'    train    {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
             stat_dict = get_stats_per_epoch(val_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
-            print(f'    val      {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
+            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
+            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
+            print(f'    val      {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
         print(f'')
 
     # Run the code
@@ -155,8 +151,9 @@ def main(args):
         val_stat_per_epoch = val()
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
+        show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch)
         print(f'done in {(time.time()-empty_time)/60:.4f} mins')
-    # some parameter might needs the init stats
+    # some parameter might needs the init stats    
 
     for epoch in range(args.start_epoch, args.epochs):
         epoch_start = time.time()
@@ -177,8 +174,7 @@ def main(args):
     save_stats(val_stat, f'val', root_folder=advatk_stat_path)
     total_time = time.time() - start_time
     print(f'Training time: {total_time/60:.4f} mins')
-            
-    
+
 def get_args():
     import argparse
     parser = argparse.ArgumentParser(description="Tweak the model by data pre-processing")
@@ -208,9 +204,9 @@ def get_args():
 
     # binary model
     parser.add_argument("--fairness-matrix", default="prediction quaility", help="how to measure fairness")
-    parser.add_argument("--p-coef", default=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1,], type=float, nargs='+', help="coefficient multiply on positive recovery loss, need to be match with the number of attributes")
-    parser.add_argument("--n-coef", default=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
-
+    # parser.add_argument("--p-coef", default=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1,], type=float, nargs='+', help="coefficient multiply on positive recovery loss, need to be match with the number of attributes")
+    # parser.add_argument("--n-coef", default=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
+    parser.add_argument("--coef", default=[0.1,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
     # loss types
     parser.add_argument("--loss-type", default='direct', type=str, help="Type of loss used")
 

@@ -60,6 +60,19 @@ def divide_tensor_binary(tensor, divide_dim=0):
         case _:
             assert False, 'regroup dimension only support 0 and 1'
     return group_1_tensor, group_2_tensor
+
+def regroup_tensor_categori(tensor, sens, regroup_dim=0):
+    # sensitive attribute is race
+    match regroup_dim:
+        case 0:
+            group_1_tensor = tensor[sens[:,0]==0]
+            group_2_tensor = tensor[sens[:,0]!=0]
+        case 1:
+            group_1_tensor = tensor[:,sens[:,0]==0]
+            group_2_tensor = tensor[:,sens[:,0]!=0]
+        case _:
+            assert False, 'regroup dimension only support 0 and 1'
+    return group_1_tensor, group_2_tensor
             
 def calc_groupcm_soft(pred, label, sens):
     def confusion_matrix_soft(pred, label, idx):
@@ -80,6 +93,16 @@ def calc_groupcm_soft(pred, label, sens):
                          group_2_tp.item(), group_2_fp.item(), group_2_fn.item(), group_2_tn.item()]])
         stat =  np.concatenate((stat, row), axis=0) if len(stat) else row
     return stat
+
+def calc_groupacc(pred, label, sens):
+    # assume the sensitive attribute is race
+    group_1_pred, group_1_label = pred[sens[:,0]==0], label[sens[:,0]==0]
+    group_2_pred, group_2_label = pred[sens[:,0]!=0], label[sens[:,0]!=0]
+    group_1_result, group_2_result = torch.eq(group_1_pred, group_1_label), torch.eq(group_2_pred, group_2_label)
+    group_1_correct, group_1_wrong = torch.sum(group_1_result, dim=0), torch.sum(torch.logical_not(group_1_result), dim=0)
+    group_2_correct, group_2_wrong = torch.sum(group_2_result, dim=0), torch.sum(torch.logical_not(group_2_result), dim=0)
+    stat = torch.stack((group_1_correct, group_1_wrong, group_2_correct, group_2_wrong), dim=1)
+    return stat.detach().cpu().numpy()
 
 # -------------------- mist --------------------
 # load and save model

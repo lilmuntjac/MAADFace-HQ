@@ -43,6 +43,11 @@ def main(args):
     total_time = time.time() - start_time
     print(f'Preparation done in {total_time:.4f} secs')
 
+    def to_prediction(logit):
+    # conert binary logit into prediction
+    pred = torch.where(logit > 0.5, 1, 0)
+    return pred
+
     def train():
         train_stat = np.array([])
         model.train()
