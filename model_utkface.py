@@ -105,6 +105,21 @@ def main(args):
         stat_dict = {"group_1_acc": group_1_acc, "group_2_acc": group_2_acc, 
                      "total_acc": total_acc, "acc_diff": acc_diff}
         return stat_dict
+    # print the epoch status on to the terminal
+    def show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch):
+        # attr_list = ["Race", "Gender", "Age"]
+        attr_list = ["Gender", "Age"]
+        for index, attr_name in enumerate(attr_list):
+            print(f'    attribute: {attr_name: >40}')
+            stat_dict = get_stats_per_epoch(train_stat_per_epoch)
+            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
+            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
+            print(f'    train    {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
+            stat_dict = get_stats_per_epoch(val_stat_per_epoch)
+            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
+            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
+            print(f'    val      {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
+        print(f'')
 
     # Run the code
     print(f'Start training model')
@@ -120,19 +135,7 @@ def main(args):
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
         # print some basic statistic
-        # attr_list = ["Race", "Gender", "Age"]
-        attr_list = ["Gender", "Age"]
-        for index, attr_name in enumerate(attr_list):
-            print(f'    attribute: {attr_name: >40}')
-            stat_dict = get_stats_per_epoch(train_stat_per_epoch)
-            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
-            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
-            print(f'    train    {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
-            stat_dict = get_stats_per_epoch(val_stat_per_epoch)
-            group_1_acc, group_2_acc = stat_dict["group_1_acc"][index], stat_dict["group_2_acc"][index]
-            total_acc, acc_diff = stat_dict["total_acc"][index], stat_dict["acc_diff"][index]
-            print(f'    val      {group_1_acc:.4f} - {group_2_acc:.4f} - {total_acc:.4f} -- {acc_diff:.4f}')
-        print(f'')
+        show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch)
         # save model checkpoint
         save_model(model, optimizer, scheduler, name=f'{epoch:04d}', root_folder=model_ckpt_path)
     # save basic statistic

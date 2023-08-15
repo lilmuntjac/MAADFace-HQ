@@ -44,9 +44,9 @@ def main(args):
     print(f'Preparation done in {total_time:.4f} secs')
 
     def to_prediction(logit):
-    # conert binary logit into prediction
-    pred = torch.where(logit > 0.5, 1, 0)
-    return pred
+        # conert binary logit into prediction
+        pred = torch.where(logit > 0.5, 1, 0)
+        return pred
 
     def train():
         train_stat = np.array([])
@@ -105,6 +105,19 @@ def main(args):
                      "tpr_diff": tpr_diff, "tnr_diff": tnr_diff, 
                      "equality_of_opportunity": equality_of_opportunity, "equalized_odds": equalized_odds}
         return stat_dict
+    # print the epoch status on to the terminal
+    def show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch):
+        for index, attr_name in enumerate(args.attr_list):
+            print(f'    attribute: {attr_name: >40}')
+            stat_dict = get_stats_per_epoch(train_stat_per_epoch)
+            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
+            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
+            print(f'    train    {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
+            stat_dict = get_stats_per_epoch(val_stat_per_epoch)
+            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
+            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
+            print(f'    val      {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
+        print(f'')
 
     # Run the code
     print(f'Start training model')
@@ -120,17 +133,7 @@ def main(args):
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
         # print some basic statistic
-        for index, attr_name in enumerate(args.attr_list):
-            print(f'    attribute: {attr_name: >40}')
-            stat_dict = get_stats_per_epoch(train_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
-            print(f'    train    {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
-            stat_dict = get_stats_per_epoch(val_stat_per_epoch)
-            macc, facc, tacc = stat_dict["male_acc"][index], stat_dict["female_acc"][index], stat_dict["total_acc"][index]
-            equality_of_opportunity, equalized_odds = stat_dict["equality_of_opportunity"][index], stat_dict["equalized_odds"][index]
-            print(f'    val      {macc:.4f} - {facc:.4f} - {tacc:.4f} -- {equality_of_opportunity:.4f} - {equalized_odds:.4f}')
-        print(f'')
+        show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch)
         # save model checkpoint
         save_model(model, optimizer, scheduler, name=f'{epoch:04d}', root_folder=model_ckpt_path)
     # save basic statistic
