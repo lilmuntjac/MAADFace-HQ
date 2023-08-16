@@ -45,7 +45,7 @@ def main(args):
             assert False, "Unknown element type"
     tweaker = Tweaker(batch_size=args.batch_size, tweak_type=args.adv_type)
     losses = Losses(loss_type=args.loss_type, fairness_criteria=args.fairness_matrix, 
-                    pred_type='categorical', out_feature=11, soft_label=True)
+                    pred_type='categorical', out_feature=11, soft_label=False)
 
     if args.resume:
         adv_component = load_stats(name=args.resume, root_folder=advatk_ckpt_path)

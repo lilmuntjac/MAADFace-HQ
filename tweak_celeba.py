@@ -48,7 +48,7 @@ def main(args):
             assert False, "Unknown element type"
     tweaker = Tweaker(batch_size=args.batch_size, tweak_type=args.adv_type)
     losses = Losses(loss_type=args.loss_type, fairness_criteria=args.fairness_matrix, 
-                    pred_type='binary', soft_label=True)
+                    pred_type='binary', soft_label=False)
 
     if args.resume:
         adv_component = load_stats(name=args.resume, root_folder=advatk_ckpt_path)
@@ -64,6 +64,11 @@ def main(args):
     n_coef = torch.tensor(args.n_coef).to(device)
     total_time = time.time() - start_time
     print(f'Preparation done in {total_time:.4f} secs')
+    
+    def to_prediction(logit):
+        # conert binary logit into prediction
+        pred = torch.where(logit > 0.5, 1, 0)
+        return pred
 
     # train and validation function
     def train():
