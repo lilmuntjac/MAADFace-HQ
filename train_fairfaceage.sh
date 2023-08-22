@@ -3,6 +3,7 @@
 # select GPUs on the server
 export CUDA_VISIBLE_DEVICES="0"
 
-python model_fairfaceage.py --model-name FairFaceAge_test \
+# choose epoch 20
+python model_fairfaceage.py --model-name FairFaceAge_lr_1e_3_b1 \
 --attr-list Age \
--b 256 --epochs 40 --lr 1e-3
+-b 128 --epochs 40 --lr 1e-3

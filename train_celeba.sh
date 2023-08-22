@@ -13,6 +13,7 @@ export CUDA_VISIBLE_DEVICES="0"
 #             Wearing_Hat Wearing_Lipstick Wearing_Necklace Wearing_Necktie Young \
 # -b 256 --epochs 10 --lr 1e-3
 
-python model_celeba.py --model-name CelebA_attr04 \
+# choose epoch 15
+python model_celeba.py --model-name CelebA_lr_1e_3_b2 \
 --attr-list Attractive High_Cheekbones Mouth_Slightly_Open Smiling \
 -b 256 --epochs 40 --lr 1e-3

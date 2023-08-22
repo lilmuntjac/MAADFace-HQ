@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 # select GPUs on the server
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="2"
 
-python model_utkfaceage.py --model-name UTKFaceAge_test \
+# choose epoch 13
+python model_utkfaceage.py --model-name UTKFaceAge_lr_5e_4_b1 \
 --attr-list Age \
--b 256 --epochs 40 --lr 1e-3
+-b 128 --epochs 40 --lr 5e-4
