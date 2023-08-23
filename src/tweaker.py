@@ -86,7 +86,7 @@ class Tweaker:
     # -------------------- noise --------------------
     def add(self, x, element):
         x = x + element
-        x = torch.clamp(x, min=-self.noise_budget, max=self.noise_budget)
+        x = torch.clamp(x, min=0.0, max=1.0) # valid image range
         return x
     
     # -------------------- patch --------------------
@@ -387,14 +387,14 @@ class Losses:
         match self.fairness_criteria:
             case 'equality of opportunity':
                 pret_eqopp = perturbed(perturbed_eqopp, 
-                                     num_samples=100000,
+                                     num_samples=10000,
                                      sigma=0.5,
                                      noise='gumbel',
                                      batched=False)
                 loss_per_attr = pret_eqopp(logit)
             case 'equalized odds':
                 pret_eqodd = perturbed(perturbed_eqodd, 
-                         num_samples=100000,
+                         num_samples=10000,
                          sigma=0.5,
                          noise='gumbel',
                          batched=False)
