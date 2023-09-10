@@ -56,12 +56,12 @@ def main(args):
                                stats_dict['total_accuracy'], marker=marker, markersize=markersize)
         left_point = axs[0].scatter([1.0-stats_dict['equality_of_opportunity'][best_eqopp_epoch]],
                                     [stats_dict['total_accuracy'][best_eqopp_epoch]], )
-        axs[0].set_title(f'Best epoch: {best_eqopp_epoch}')
+        axs[0].set_title(f'Best epoch: {best_eqopp_epoch} - ')
         axs[0].set_xlabel('Equality of opportunity')
         axs[0].set_ylabel('Total Accuracy')
         axs[0].set_box_aspect(1)
-        axs[0].set_xlim([0.5, 1.0])
-        axs[0].set_ylim([0.5, 1.0])
+        axs[0].set_xlim([0.0, 1.0])
+        axs[0].set_ylim([0.0, 1.0])
         
         best_eqodd_epoch = stats_dict['equalized_odds'].index(min(stats_dict['equalized_odds']))
         right_fig= axs[1].plot(list(map(lambda x: 1.0-x, stats_dict['equalized_odds'])), 
@@ -73,7 +73,7 @@ def main(args):
         axs[1].set_ylabel('Total Accuracy')
         axs[1].set_box_aspect(1)
         axs[1].set_xlim([0.5, 1.0])
-        axs[1].set_ylim([0.5, 1.0])
+        axs[1].set_ylim([0.0, 1.0])
         fig.savefig(fig_path,)
         plt.close(fig)
 

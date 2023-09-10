@@ -187,10 +187,10 @@ def main(args):
         match args.pred_type:
             case "binary":
                 draw_binary_model_status(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], length=args.length, root_folder=args.out_dir)
-                show_binary_model_status_by_epoch(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], 8)
+                show_binary_model_status_by_epoch(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], args.epoch_shown)
             case "categorical":
                 draw_categorial_model_status(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], length=args.length, root_folder=args.out_dir)
-                show_categorial_model_status_by_epoch(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], 8)
+                show_categorial_model_status_by_epoch(attr, train_stats[:,attr_idx,:], val_stats[:,attr_idx,:], args.epoch_shown)
             case _:
                 assert False, "unknown model prediction type, must be binary or categorical"
     
@@ -205,6 +205,8 @@ def get_args():
 
     parser.add_argument("--attr-list", type=str, nargs='+', help="attributes name predicted by model")
     parser.add_argument("--pred-type", type=str, help="model prediction type, binary or categorical")
+
+    parser.add_argument("-e", "--epoch-shown", type=int, help="specify the epoch to print to the terminal")
 
     return parser
 

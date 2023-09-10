@@ -76,6 +76,7 @@ def main(args):
         model.eval()
         # training loop
         for batch_idx, (data, raw_label) in enumerate(train_dataloader):
+            raw_label = raw_label.to(torch.float32)
             data, raw_label = data.to(device), raw_label.to(device)
             # tweak on data
             data, raw_label = tweaker.apply(data, raw_label, adv_component)
@@ -160,6 +161,7 @@ def main(args):
         val_stat_per_epoch = val()
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
+        show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch)
         print(f'done in {(time.time()-empty_time)/60:.4f} mins')
     # some parameter might needs the init stats
 

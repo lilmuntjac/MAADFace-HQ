@@ -54,7 +54,7 @@ def main(args):
                      \nEquality of opportunity: {stats_dict["equality_of_opportunity"]:.2%}, Equalized odds: {stats_dict["equalized_odds"]:.2%}',
                      ha='center')
         
-        left_fig = axs[0].imshow(confusion_matrixs[0:4].reshape(2,2).T/sum(confusion_matrixs[0:4]), 
+        left_fig = axs[0].imshow(confusion_matrixs[0:4].reshape(2,2)/sum(confusion_matrixs[0:4]), 
                                  cmap=plt.cm.cool, vmin=0, vmax=1)
         axs[0].set_title(f'Male accuracy: {stats_dict["group_1_accuracy"]:.2%}')
         axs[0].set_xticks([0, 1])
@@ -64,7 +64,7 @@ def main(args):
         axs[0].set_xticklabels(['Positive', 'Negative'])
         axs[0].set_yticklabels(['Positive', 'Negative'], rotation=90, va='center')
         
-        right_fig=axs[1].imshow(confusion_matrixs[4:8].reshape(2,2).T/sum(confusion_matrixs[4:8]), 
+        right_fig=axs[1].imshow(confusion_matrixs[4:8].reshape(2,2)/sum(confusion_matrixs[4:8]), 
                                 cmap=plt.cm.cool, vmin=0, vmax=1)
         axs[1].set_title(f'Female accuracy: {stats_dict["group_2_accuracy"]:.2%}')
         axs[1].set_xticks([0, 1])
@@ -76,9 +76,9 @@ def main(args):
 
         # value on the cell
         for i in range(4):
-            axs[0].text(x=i//2, y=i%2, s=f'{cell_def[i]}\n{confusion_matrixs[i]/sum(confusion_matrixs[0:4]):.2%}', 
+            axs[0].text(x=i%2, y=i//2, s=f'{cell_def[i]}\n{confusion_matrixs[i]/sum(confusion_matrixs[0:4]):.2%}', 
                         va='center', ha='center', size='xx-large')
-            axs[1].text(x=i//2, y=i%2, s=f'{cell_def[i]}\n{confusion_matrixs[i+4]/sum(confusion_matrixs[4:8]):.2%}',  
+            axs[1].text(x=i%2, y=i//2, s=f'{cell_def[i]}\n{confusion_matrixs[i+4]/sum(confusion_matrixs[4:8]):.2%}',  
                         va='center', ha='center', size='xx-large')
         
         # add a color bar

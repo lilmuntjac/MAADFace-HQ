@@ -100,7 +100,7 @@ def main(args):
         model.eval()
         with torch.no_grad():
             # validaton loop
-            for batch_idx, (data, raw_label) in enumerate(train_dataloader):
+            for batch_idx, (data, raw_label) in enumerate(dataloader):
                 data, raw_label = data.to(device), raw_label.to(device)
                 # tweak on data
                 data, raw_label = tweaker.apply(data, raw_label, adv_component)
