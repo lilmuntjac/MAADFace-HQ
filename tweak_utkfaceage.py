@@ -81,7 +81,7 @@ def main(args):
             instance = normalize(data)
             adversary_optimizer.zero_grad()
             logit = model(instance)
-            loss = losses.run(logit, label, sens)
+            loss = losses.run(logit, label, sens, p_coef, n_coef) # binary
             loss.backward()
             # if batch_idx % 128 ==0:
             #     adversary_optimizer.step()
@@ -171,6 +171,29 @@ def main(args):
         print(f'Epoch {epoch:4} done in {epoch_time/60:.4f} mins')
         train_stat = np.concatenate((train_stat, train_stat_per_epoch), axis=0) if len(train_stat) else train_stat_per_epoch
         val_stat = np.concatenate((val_stat, val_stat_per_epoch), axis=0) if len(val_stat) else val_stat_per_epoch
+        # adjust the recovery loss coefficient
+        if args.coef_mode == "dynamic":
+            init_tacc = get_stats_per_epoch(val_stat[0:1,:,:])["total_acc"]
+            last_tacc = get_stats_per_epoch(val_stat[-2:-1,:,:])["total_acc"]
+            curr_tacc = get_stats_per_epoch(val_stat_per_epoch)["total_acc"]
+            last_TPRd = get_stats_per_epoch(val_stat[-2:-1,:,:])["tpr_diff"]
+            last_TNRd = get_stats_per_epoch(val_stat[-2:-1,:,:])["tnr_diff"]
+            curr_TPRd = get_stats_per_epoch(val_stat_per_epoch)["tpr_diff"]
+            curr_TNRd = get_stats_per_epoch(val_stat_per_epoch)["tnr_diff"]
+            # print the coefficient (binary)
+            p_coef_list, n_coef_list = p_coef.clone().cpu().numpy().tolist(), n_coef.clone().cpu().numpy().tolist()
+            p_coef_list, n_coef_list = [f'{f:.4f}' for f in p_coef_list], [f'{f:.4f}' for f in n_coef_list]
+            print(f'    p-coef: {" ".join(p_coef_list)} -- n-coef: {" ".join(n_coef_list)}')
+            if curr_tacc[0] < init_tacc[0] - args.quality_target:
+                p_coef[0], n_coef[0] = min(p_coef[0]*1.05, 1e4), min(n_coef[0]*1.05, 1e4)
+            elif args.fairness_matrix == "equality of opportunity":
+                if curr_TPRd[0] > args.fairness_target and curr_TPRd[0] > last_TPRd[0]:
+                    p_coef[0] = max(p_coef[0]*0.95, 1e-4)
+            elif args.fairness_matrix == "equalized odds":
+                if curr_TPRd[0] > args.fairness_target and curr_TPRd[0] > last_TPRd[0]:
+                    p_coef[0] = max(p_coef[0]*0.95, 1e-4)
+                if curr_TNRd[0] > args.fairness_target and curr_TNRd[0] > last_TNRd[0]:
+                    n_coef[0] = max(n_coef[0]*0.95, 1e-4 )
         # print some basic statistic
         show_stats_per_epoch(train_stat_per_epoch, val_stat_per_epoch)
         # save the adversarial component for each epoch
@@ -208,14 +231,17 @@ def get_args():
 
 
 
-
-    # binary model
     parser.add_argument("--fairness-matrix", default="prediction quaility", help="how to measure fairness")
-    parser.add_argument("--p-coef", default=[0.1,], type=float, nargs='+', help="coefficient multiply on positive recovery loss, need to be match with the number of attributes")
-    parser.add_argument("--n-coef", default=[0.1,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
+    # binary model
+    parser.add_argument("--p-coef", default=[0.0,], type=float, nargs='+', help="coefficient multiply on positive recovery loss, need to be match with the number of attributes")
+    parser.add_argument("--n-coef", default=[0.0,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
+    # categorical model
     # parser.add_argument("--coef", default=[0.1,], type=float, nargs='+', help="coefficient multiply on negative recovery loss, need to be match with the number of attributes")
     # loss types
     parser.add_argument("--loss-type", default='direct', type=str, help="Type of loss used")
+    parser.add_argument("--coef-mode", default="static", type=str, help="method to adjust coef durinig training")
+    parser.add_argument("--fairness-target", default=0.03, type=float, help="Fairness target value")
+    parser.add_argument("--quality-target", default=0.05, type=float, help="Max gap loss for prediction quaility")
 
     return parser
 

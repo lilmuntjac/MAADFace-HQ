@@ -149,6 +149,17 @@ def save_stats(nparray, name, root_folder='/tmp2/npfe/model_stats'):
     path = folder / f"{name}.npy"
     np.save(path, nparray)
 
+def fairness_matrix_to_dict_key(fairness_matrix):
+    match fairness_matrix:
+        case "equality of opportunity":
+            return "equality_of_opportunity" 
+        case "equalized odds":
+            return "equalized_odds"
+        case "accuracy difference":
+            return "acc_diff"
+        case _:
+            assert False, f'unrecognized fairness matrix' 
+            
 # normalize
 imagenet_mean = (0.485, 0.456, 0.406)
 imagenet_std  = (0.229, 0.224, 0.225)
